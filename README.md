@@ -1,5 +1,5 @@
 # Apocalypse CRT
-Who knew classic CRT monitors resurge as the preeminent display for the apocalypse. This shader attempts to simulate those war-torn displays.
+Who knew classic CRT monitors would resurge as the prominent display for the apocalypse. This shader attempts to simulate those archaic but sturdy displays.
 
 Example of shader in use on FL Studio's ZGameEditor, during the apocalypse, of course:
 [![Apocalypse CRT](https://img.youtube.com/vi/eaLK1JijyYI/hqdefault.jpg 'Apocalypse CRT')](https://youtu.be/eaLK1JijyYI)
