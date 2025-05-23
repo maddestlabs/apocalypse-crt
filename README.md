@@ -5,7 +5,9 @@ Example of shader in use on FL Studio's ZGameEditor, during the apocalypse, of c
 [![Apocalypse CRT](https://img.youtube.com/vi/eaLK1JijyYI/hqdefault.jpg 'Apocalypse CRT')](https://youtu.be/eaLK1JijyYI)
 
 ## What it is?
-It's a CRT shader. There are a lot of CRT shaders. This one most accurately simulates CRT displays from the future. It's also available across a bunch of tools like Windows Terminal, Shadertoy and FL Studio's ZGameEditor.
+It's a CRT shader. There are a lot of CRT shaders. This one most accurately simulates CRT displays from the future. It's also available across a bunch of tools like [Windows Terminal](https://github.com/microsoft/terminal
+), Shadertoy and FL Studio's [ZGameEditor](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/plugins/ZGameEditor%20Visualizer.htm
+).
 
 The Shadertoy version lives [here](https://www.shadertoy.com/view/3cc3zN).
 
