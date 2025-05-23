@@ -1,0 +1,565 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<ZApplication Name="App" Caption="ZGameEditor application" FileVersion="2">
+  <OnUpdate>
+    <ZExpression>
+      <Expression>
+<![CDATA[//Optional: Move  to Constants to ZLibrary before release.
+float Speed=1.0;
+float delta=app.DeltaTime*Speed;
+uTime+=delta;
+
+//Most used ShaderToy uniform variables
+uResolution=vector2(app.ViewportWidth,app.ViewportHeight);
+uViewport=vector2(app.ViewportX,app.ViewportY);
+uMouse=vector4(0.0,0.0,0.0,0.0);]]>
+      </Expression>
+    </ZExpression>
+  </OnUpdate>
+  <OnRender>
+    <UseMaterial Material="mCanvas"/>
+    <RenderSprite/>
+  </OnRender>
+  <Content>
+    <Shader Name="MainShader">
+      <VertexShaderSource>
+<![CDATA[#version 120
+
+void main(){
+  vec4 vertex = gl_Vertex;
+  vertex.xy *= 2.0;
+  gl_Position = vertex;
+}]]>
+      </VertexShaderSource>
+      <FragmentShaderSource>
+<![CDATA[#version 120
+
+uniform vec2 iResolution,iViewport;
+uniform float iTime;
+uniform vec4 iMouse;
+uniform sampler2D tex1;
+uniform sampler2D tex2;
+#define iChannel0 tex1
+#define iChannel1 tex2
+
+uniform float ZGEGrilleLvl;
+uniform float ZGEGrilleDensity;
+uniform float ZGEScanlineLvl;
+uniform float ZGEScanlines;
+uniform float ZGERgbOffset;
+uniform float ZGENoiseLevel;
+uniform float ZGEFlicker;
+uniform float ZGEGlassTint;
+uniform float ZGEGlassHue;
+uniform float ZGEGlassSat;
+uniform float ZGEScreenTint;
+uniform float ZGEScreenHue;
+uniform float ZGEScreenSat;
+uniform float ZGEBloomLevel;
+uniform float ZGEVignetteStart;
+uniform float ZGEVignetteLvl;
+uniform float ZGEHSync;
+uniform float ZGELightSpeed;
+uniform float ZGEOverlay;
+uniform float ZGERumble;
+uniform float ZGEcurveStrength;
+uniform float ZGEcurveDistance;
+uniform float ZGEFrameSize;
+uniform float ZGEFrameHue;
+uniform float ZGEFrameSat;
+uniform float ZGEFrameLight;
+uniform float ZGEFrameReflect;
+uniform float ZGEFrameGrain;
+uniform float ZGEBorderSize;
+uniform float ZGEBorderHue;
+uniform float ZGEBorderSat;
+uniform float ZGEBorderLight;
+
+// iChannel0: Content texture (main image)
+// iChannel1: Background/reflection texture
+
+// Gaussian blur constants
+#define SCALED_GAUSSIAN_SIGMA (2.0 * Scale)
+#define M_PI 3.14159265
+
+// Custom uniforms
+const float Scale = 1.0;
+const vec4 Background = vec4(0.0, 0.0, 0.0, 1.0);
+
+float rnd(vec2 c) {
+    return fract(sin(dot(c.xy, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+vec3 hsl2rgb(vec3 c) {
+    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+// RGB shift
+vec3 rgbDistortion(vec2 uv, float offset) {
+    vec3 color;
+    color.r = texture2D(iChannel0, uv + vec2(offset, 0.0)).r;
+    color.g = texture2D(iChannel0, uv).g;
+    color.b = texture2D(iChannel0, uv - vec2(offset, 0.0)).b;
+    return color;
+}
+
+// Gaussian 2D function for bloom effect
+float Gaussian2D(float x, float y, float sigma) {
+    return 1.0 / (sigma * sqrt(2.0 * M_PI)) * exp(-0.5 * (x * x + y * y) / sigma / sigma);
+}
+
+// Blur function for Bloom effect
+vec3 Blur(vec2 tex_coord, float sigma, float sampleCount, float ZGEBorderSize, float hWave) {
+    vec2 dimensions = iResolution.xy;
+    float width = dimensions.x;
+    float height = dimensions.y;
+
+    float texelWidth = 1.0 / width;
+    float texelHeight = 1.0 / height;
+
+    vec3 color = vec3(0.0, 0.0, 0.0);
+    float totalWeight = 0.0;
+    
+    for (float x = 0.0; x < sampleCount; x++) {
+        vec2 samplePos = vec2(0.0, 0.0);
+        samplePos.x = tex_coord.x + (x - sampleCount / 2.0) * texelWidth;
+
+        for (float y = 0.0; y < sampleCount; y++) {
+            samplePos.y = tex_coord.y + (y - sampleCount / 2.0) * texelHeight;
+            
+            // Transform coordinates to account for border
+            vec2 adjustedPos = (samplePos - vec2(ZGEBorderSize, ZGEBorderSize)) / (1.0 - 2.0 * ZGEBorderSize);
+            
+            // Apply horizontal sync distortion just like in the main rendering path
+            adjustedPos.x += hWave;
+            
+            // Check if the adjusted position is within the valid range
+            if (adjustedPos.x >= 0.0 && adjustedPos.x <= 1.0 && 
+                adjustedPos.y >= 0.0 && adjustedPos.y <= 1.0) {
+                
+                float weight = Gaussian2D(x - sampleCount / 2.0, y - sampleCount / 2.0, sigma);
+                totalWeight += weight;
+                
+                color += rgbDistortion(adjustedPos, 0.0005) * weight;
+            }
+        }
+    }
+    
+    // Prevent division by zero if all samples were outside the valid range
+    if (totalWeight > 0.0) {
+        return color / totalWeight;
+    } else {
+        return vec3(0.0, 0.0, 0.0);
+    }
+}
+
+// Calculate light effect
+float calculateLightFactor(vec2 uv, float iTime) {
+    // Light configuration
+    float light_intensity = 1.5;  // Overall light intensity
+    float ambient_light = 0.25;   // Minimum brightness in darker areas
+
+    // Calculate moving light position
+    float lightX = 0.5 + sin(iTime * 1.75) * 0.35;
+    vec2 lightPos = vec2(lightX, 0.2);
+    
+    // Calculate vector to light
+    vec2 lightVector = uv - lightPos;
+    
+    // Create elliptical distance by scaling horizontal and vertical distances differently
+    vec2 scaledVector = vec2(lightVector.x, lightVector.y);
+    float scaledDistance = length(scaledVector);
+    
+    // Apply smooth falloff
+    float lightFalloff = pow(clamp(1.0 - (scaledDistance / 1.5), 0.0, 1.0), 0.85);
+    
+    // Create smooth transition from light to ambient
+    return mix(ambient_light, 1.0 + light_intensity, lightFalloff);
+}
+
+vec3 tex(vec2 uv, float bSize, vec3 bColor, bool isFrame, float fSize) {
+    float iTime = iTime;
+    vec2 iResolution = iResolution.xy;
+
+    // ML Parameters
+    // ML Parameters
+    
+    // Configure parameters for horizontal sync wave
+    float time = iTime * 5.0;
+    float size = mix(0.0, ZGEHSync, 0.1);
+
+    // Horizontal sync wave effect
+    float cyclePeriod = 2.0; // Base cycle of 2 seconds
+    float randomOffset = fract(sin(floor(iTime / cyclePeriod) * 12345.67) * 43758.5453); // Pseudo-random per cycle
+    float actualCyclePeriod = cyclePeriod + randomOffset; // Varies between 2-3 seconds
+    float cyclePosition = fract(iTime / actualCyclePeriod);
+
+    // Only show wave effect for the first 15% of each cycle
+    float waveDuration = 0.15;
+    float waveStrength = 0.0;
+
+    if (cyclePosition < waveDuration) {
+        float normalizedTime = cyclePosition / waveDuration;
+        waveStrength = sin(normalizedTime * 3.14159) * size;
+    }
+
+    // Apply wave effect only during the active period
+    float hWave = sin(uv.y * 10.0 + time) * waveStrength;
+
+    //float hWave = sin(uv.y * 10.0 + time) * size;
+    vec3 color;
+
+    // Use borderColor if within border width
+    bool isBorder = 
+        (uv.x < bSize || uv.x > 1.0 - bSize || 
+         uv.y < bSize || uv.y > 1.0 - bSize);
+
+    // Calculate normalized coordinates within the screen area
+    vec2 screenUV = (uv - vec2(bSize, bSize)) / (1.0 - 2.0 * bSize);
+    if (isBorder && bSize > 0.0) {
+        // DISTORT - Horizontal Sync
+        if (screenUV.x < 0.0 || screenUV.x > 1.0 || screenUV.y < 0.0 || screenUV.y > 1.0) {
+            // If out of bounds, use border color
+            color = bColor;
+        } else {
+            // If in bounds but in border area, apply RGB shift to screen content
+            // for reflection effect
+            color = rgbDistortion(screenUV, ZGERgbOffset);
+        }
+    } else {
+        // No border specified
+        screenUV.x += hWave;
+        if (screenUV.x < 0.0 || screenUV.x > 1.0 || screenUV.y < 0.0 || screenUV.y > 1.0) {
+            // If out of bounds after distortion, use border color
+            color = bColor;
+        } else {
+            // Use RGB shift with distortion
+            color = rgbDistortion(screenUV, ZGERgbOffset);
+        }
+    }
+    
+    // FX Aperture Grille
+    if (ZGEGrilleLvl > 0.0) {
+        float grillePattern = sin(uv.x * ZGEGrilleDensity * 3.14159);
+        grillePattern = ZGEGrilleLvl + (1.0 - ZGEGrilleLvl) * grillePattern;
+        color *= (0.5 + 0.5 * grillePattern);
+    }
+    
+    // FX Scanlines
+    if (ZGEScanlineLvl > 0.05) {
+        float scanlinePattern = sin(uv.y * iResolution.y * 3.14159 / ZGEScanlines);
+        color *= (ZGEScanlineLvl + (1.0 - ZGEScanlineLvl) * scanlinePattern);
+    }
+    
+    // FX Noise
+    if (ZGENoiseLevel > 0.0) {
+        float timeFactor = iTime * 1.0;
+        float noise = rnd(uv + timeFactor);
+        color += noise * ZGENoiseLevel * 0.5;
+    }
+
+    // FX Screen tint
+    if (ZGEScreenTint > 0.0) {
+        float l = dot(color, vec3(0.2126, 0.7152, 0.0722));
+        vec3 screen = hsl2rgb(vec3(ZGEScreenHue, ZGEScreenSat, l));
+        color = vec3(mix(color, vec3(screen), ZGEScreenTint));
+    }
+    
+    // FX Glass tint
+    if (ZGEGlassTint > 0.0) {
+        float t = 0.5 + 0.5 * uv.y;
+        vec3 tintColor = hsl2rgb(vec3(ZGEGlassHue, ZGEGlassSat, t));
+        color += tintColor * ZGEGlassTint;
+    }
+
+    // FX Flicker
+    if (ZGEFlicker > 0.0) {
+        float f = 1.0 + 0.25 * sin(iTime * 60.0) * ZGEFlicker;
+        color *= f;
+    }
+
+    // FX Bloom
+    if (ZGEBloomLevel > 0.0) {
+        float sampleCount = 2.0;
+        vec3 bloom = Blur(uv, SCALED_GAUSSIAN_SIGMA, sampleCount, bSize, hWave);
+        color += bloom * ZGEBloomLevel;
+    }
+
+    // FX background texture/overlay
+    if (ZGEOverlay > 0.0) {
+        vec4 bgTex = texture2D(iChannel1, uv);
+        // Mix based on opacity for PNG alpha levels
+        if (bgTex.a < 1.0) {
+            color = vec3(mix(color, bgTex.rgb, bgTex.a * ZGEOverlay));
+        } else {
+            color = vec3(mix(color, bgTex.rgb, (0.5 * ZGEOverlay)));
+            color += bgTex.rgb * 0.5;
+        }
+    }
+    
+    // FX Vignette
+    if (isFrame) uv = (uv - 0.5) * (1.0 / (1.0 - fSize)) + 0.5;
+    uv *= (1.0 - uv.yx);
+    color *= pow(uv.x * uv.y * ZGEVignetteLvl, ZGEVignetteStart);
+    
+    // FX Light Source
+    if (ZGELightSpeed > 0.0) {
+        float lightFactor = calculateLightFactor(uv, iTime);
+        vec3 lightColor = vec3(1.0, 0.98, 0.95); // Slightly warm light
+        color *= lightColor * lightFactor;
+    }
+
+    return color;
+}
+
+void mainImage(out vec4 fragColor, in vec2 fragCoord)
+{
+    float iTime = iTime;
+    vec2 iResolution = iResolution.xy;
+
+    vec2 uv = fragCoord / iResolution.xy;
+
+    // FX Rumble
+    // Use a hash for random intervals
+    float hash = fract(sin(floor(iTime / 7.0) * 43758.5453));
+    float interval = 7.0 + hash * 6.0;
+    // ML Parameters
+    // ML Parameters
+    float rumbleDim = 0.0;
+    if (ZGERumble > 0.0) {
+        float rumbleStrength = 0.0;
+        
+        // Calculate phase within current interval
+        float currentIntervalStart = floor(iTime / interval) * interval;
+        float phase = iTime - currentIntervalStart;
+        
+        if (phase < ZGERumble) {
+            // Rumble strength peaks in middle and fades at start/end
+            rumbleStrength = sin(phase * 3.14159 / ZGERumble);
+            rumbleDim = 0.05 * rumbleStrength;
+        }
+        
+        // Create random offset for rumble effect
+        float maxOffset = 3.0; // Maximum pixel offset
+        vec2 rumbleOffset = vec2(
+            sin(iTime * 20.0 + 0.3) * cos(iTime * 13.0),
+            cos(iTime * 17.0 - 0.7) * sin(iTime * 11.0)
+        ) * rumbleStrength * maxOffset / iResolution;
+        uv += rumbleOffset;
+    }
+
+    vec2 center = vec2(0.5, 0.5);
+    float alpha = 1.0;
+    float distanceFromCenter = length(uv - center);
+    // Calculate pixel size in UV coordinates
+    vec2 pxSize = 1.0 / iResolution.xy;
+    
+    // ML Parameters
+    uv += (uv - center) * pow(distanceFromCenter, ZGEcurveDistance) * ZGEcurveStrength;
+    // ML Parameters
+    
+    vec3 bColor = hsl2rgb(vec3(ZGEBorderHue, ZGEBorderSat, ZGEBorderLight));
+    
+    float frame = ZGEFrameSize * pxSize.x;
+    float border = ZGEBorderSize * pxSize.x;
+    // Calculate scaled UV coordinates with offset
+    vec2 suv = (uv - vec2(frame, frame)) / (1.0 - 2.0 * (frame));
+
+    vec3 color;
+
+    // Check if pixel is in frame region
+    bool isFrame = (uv.x < frame || uv.x > (1.0 - frame) ||
+                    uv.y < frame || uv.y > (1.0 - frame));
+   
+    // Determine color based on region
+    if (isFrame) {
+        if (ZGEFrameLight == 0.0) alpha = 0.0;
+        // Calculate frame intensity based on distance to center
+        float frame = 100.0;
+        float nX = frame / iResolution.x;
+        float nY = frame / iResolution.y;
+        float intensity = 0.0;
+        // Calculate minimum distance to frame
+        float distX = min(uv.x, 1.0-uv.x);
+        float distY = min(uv.y, 1.0-uv.y);
+        float minDist = min(distX, distY);
+        // Scale intensity based on distance, closer to center gets darker
+        intensity = mix(ZGEFrameLight, 0.0, minDist / max(nX, nY) * 4.0);
+        
+        // Get base reflection coordinates
+        vec2 f = border / iResolution.xy;
+        vec2 reflectedUV = suv;
+        
+        // Apply standard mirror reflection
+        if (reflectedUV.x < f.x) {
+            reflectedUV.x = f.x - (reflectedUV.x - f.x);
+        } else if (reflectedUV.x > 1.0 - f.x) {
+            reflectedUV.x = 1.0 - f.x - (reflectedUV.x - (1.0 - f.x));
+        }
+        if (reflectedUV.y < f.y) {
+            reflectedUV.y = f.y - (reflectedUV.y - f.y);
+        } else if (reflectedUV.y > 1.0 - f.y) {
+            reflectedUV.y = 1.0 - f.y - (reflectedUV.y - (1.0 - f.y));
+        }
+        
+        // Apply controlled curvature to mirrored coordinates
+        vec2 reflCenter = vec2(0.5, 0.5);
+        float reflDistFromCenter = length(reflectedUV - reflCenter);
+        
+        // Use curved coordinates for sampling texture
+        vec3 blurred = vec3(0.0, 0.0, 0.0);
+        float blur = 2.0 / iResolution.x;
+        float frameBlur = 1.0; // Range: 1.0, 6.0
+        int r = int(frameBlur);
+        for (int x = -r; x <= r; x++) {
+            for (int y = -r; y <= r; y++) {
+                vec2 blurPos = reflectedUV + vec2(float(x) * blur, float(y) * blur);
+                blurred += tex(blurPos, border, bColor, isFrame, ZGEFrameSize);
+            }
+        }
+        blurred /= 32.0;
+        
+        color = hsl2rgb(vec3(ZGEFrameHue, ZGEFrameSat, intensity));
+        color *= 1.0 - ZGEFrameGrain * rnd(suv);
+        color += blurred * ZGEFrameReflect * 0.5;
+        
+        // FX Light Source
+        float lightFactor = calculateLightFactor(uv, iTime);
+        vec3 lightColor = vec3(1.0, 0.98, 0.95); // Slightly warm light
+        color *= lightColor * lightFactor;
+    } else {
+        color = tex(suv, border, bColor, isFrame, ZGEFrameSize);
+    }
+
+    // Dim lights during rumble
+    color -= rumbleDim;
+
+    fragColor = vec4(color, alpha);
+}
+
+void main(){
+    //ZGE does not use mainImage( out vec4 fragColor, in vec2 fragCoord )
+    //Rededefined fragCoord as gl_FragCoord.xy-iViewport(dynamic window)
+    mainImage(gl_FragColor,gl_FragCoord.xy-iViewport);
+}]]>
+      </FragmentShaderSource>
+      <UniformVariables>
+        <ShaderVariable VariableName="iResolution" VariableRef="uResolution"/>
+        <ShaderVariable VariableName="iViewport" VariableRef="uViewport"/>
+        <ShaderVariable VariableName="iTime" VariableRef="uTime"/>
+        <ShaderVariable VariableName="iMouse" VariableRef="uMouse"/>
+        <ShaderVariable Name="ZGEGrilleLvl" VariableName="ZGEGrilleLvl" ValuePropRef="(((Parameters[0] - 0.0) * (3.0 - 0.0)) / (1.0 - 0.0)) + 0.0"/>
+        <ShaderVariable Name="ZGEGrilleDensity" VariableName="ZGEGrilleDensity" ValuePropRef="(((Parameters[1] - 0.0) * (1000.0 - 0.0)) / (1.0 - 0.0)) + 0.0"/>
+        <ShaderVariable Name="ZGEScanlineLvl" VariableName="ZGEScanlineLvl" ValuePropRef="(((Parameters[2] - 0.0) * (3.0 - 0.05)) / (1.0 - 0.0)) + 0.05"/>
+        <ShaderVariable Name="ZGEScanlines" VariableName="ZGEScanlines" ValuePropRef="(((Parameters[3] - 0.0) * (6.0 - 1.0)) / (1.0 - 0.0)) + 1.0"/>
+        <ShaderVariable Name="ZGERgbOffset" VariableName="ZGERgbOffset" ValuePropRef="Parameters[4]"/>
+        <ShaderVariable Name="ZGENoiseLevel" VariableName="ZGENoiseLevel" ValuePropRef="Parameters[5]"/>
+        <ShaderVariable Name="ZGEFlicker" VariableName="ZGEFlicker" ValuePropRef="Parameters[6]"/>
+        <ShaderVariable Name="ZGEGlassTint" VariableName="ZGEGlassTint" ValuePropRef="Parameters[7]"/>
+        <ShaderVariable Name="ZGEGlassHue" VariableName="ZGEGlassHue" ValuePropRef="Parameters[8]"/>
+        <ShaderVariable Name="ZGEGlassSat" VariableName="ZGEGlassSat" ValuePropRef="Parameters[9]"/>
+        <ShaderVariable Name="ZGEScreenTint" VariableName="ZGEScreenTint" ValuePropRef="Parameters[10]"/>
+        <ShaderVariable Name="ZGEScreenHue" VariableName="ZGEScreenHue" ValuePropRef="Parameters[11]"/>
+        <ShaderVariable Name="ZGEScreenSat" VariableName="ZGEScreenSat" ValuePropRef="Parameters[12]"/>
+        <ShaderVariable Name="ZGEBloomLevel" VariableName="ZGEBloomLevel" ValuePropRef="(((Parameters[13] - 0.0) * (2.0 - 0.0)) / (1.0 - 0.0)) + 0.0"/>
+        <ShaderVariable Name="ZGEVignetteStart" VariableName="ZGEVignetteStart" ValuePropRef="(((Parameters[14] - 0.0) * (2.0 - 0.0)) / (1.0 - 0.0)) + 0.0"/>
+        <ShaderVariable Name="ZGEVignetteLvl" VariableName="ZGEVignetteLvl" ValuePropRef="(((Parameters[15] - 0.0) * (20.0 - 1.0)) / (1.0 - 0.0)) + 1.0"/>
+        <ShaderVariable Name="ZGEHSync" VariableName="ZGEHSync" ValuePropRef="(((Parameters[16] - 0.0) * (3.0 - 0.0)) / (1.0 - 0.0)) + 0.0"/>
+        <ShaderVariable Name="ZGELightSpeed" VariableName="ZGELightSpeed" ValuePropRef="(((Parameters[17] - 0.0) * (2.0 - 0.0)) / (1.0 - 0.0)) + 0.0"/>
+        <ShaderVariable Name="ZGEOverlay" VariableName="ZGEOverlay" ValuePropRef="Parameters[18]"/>
+        <ShaderVariable Name="ZGERumble" VariableName="ZGERumble" ValuePropRef="Parameters[19]"/>
+        <ShaderVariable Name="ZGEcurveStrength" VariableName="ZGEcurveStrength" ValuePropRef="(((Parameters[20] - 0.0) * (5.0 - 0.0)) / (1.0 - 0.0)) + 0.0"/>
+        <ShaderVariable Name="ZGEcurveDistance" VariableName="ZGEcurveDistance" ValuePropRef="(((Parameters[21] - 0.0) * (5.0 - 0.0)) / (1.0 - 0.0)) + 0.0"/>
+        <ShaderVariable Name="ZGEFrameSize" VariableName="ZGEFrameSize" ValuePropRef="(((Parameters[22] - 0.0) * (80.0 - 0.0)) / (1.0 - 0.0)) + 0.0"/>
+        <ShaderVariable Name="ZGEFrameHue" VariableName="ZGEFrameHue" ValuePropRef="Parameters[23]"/>
+        <ShaderVariable Name="ZGEFrameSat" VariableName="ZGEFrameSat" ValuePropRef="Parameters[24]"/>
+        <ShaderVariable Name="ZGEFrameLight" VariableName="ZGEFrameLight" ValuePropRef="Parameters[25]"/>
+        <ShaderVariable Name="ZGEFrameReflect" VariableName="ZGEFrameReflect" ValuePropRef="Parameters[26]"/>
+        <ShaderVariable Name="ZGEFrameGrain" VariableName="ZGEFrameGrain" ValuePropRef="Parameters[27]"/>
+        <ShaderVariable Name="ZGEBorderSize" VariableName="ZGEBorderSize" ValuePropRef="(((Parameters[28] - 0.0) * (80.0 - 0.0)) / (1.0 - 0.0)) + 0.0"/>
+        <ShaderVariable Name="ZGEBorderHue" VariableName="ZGEBorderHue" ValuePropRef="Parameters[29]"/>
+        <ShaderVariable Name="ZGEBorderSat" VariableName="ZGEBorderSat" ValuePropRef="Parameters[30]"/>
+        <ShaderVariable Name="ZGEBorderLight" VariableName="ZGEBorderLight" ValuePropRef="Parameters[31]"/>
+      </UniformVariables>
+    </Shader>
+    <Group Comment="Default ShaderToy Uniform Varible Inputs">
+      <Children>
+        <Variable Name="uResolution" Type="6"/>
+        <Variable Name="uTime"/>
+        <Variable Name="uTimeDelta"/>
+        <Variable Name="uFrame" Type="1"/>
+        <Variable Name="uFrameRate"/>
+        <Variable Name="uMouse" Type="8"/>
+        <Variable Name="uDate" Type="8"/>
+      </Children>
+    </Group>
+    <Group Comment="FL Studio Varibles">
+      <Children>
+        <Array Name="Parameters" SizeDim1="32" Persistent="255">
+          <Values>
+<![CDATA[789c53525a6477f68c8f7d8a76931d0310e40b355b9d3d73c676d64c499038586cd6cc9970360343833d8466b003b1f94aa2ac816c7b985c4cbf931d444d0350cf191b90595cd717db80f8203319d0000033302056]]>
+          </Values>
+        </Array>
+        <Constant Name="ParamHelpConst" Type="2">
+          <StringValue>
+<![CDATA[Grille Lvl 
+Grille Density 
+Scanline Lvl 
+Scanlines 
+Rgb Offset 
+Noise Level 
+Flicker 
+Glass Tint 
+Glass Hue 
+Glass Sat 
+Screen Tint 
+Screen Hue 
+Screen Sat 
+Bloom Level 
+Vignette Start 
+Vignette Lvl 
+H Sync 
+Light Speed 
+Overlay 
+Rumble 
+Curve Strength 
+Curve Distance 
+Frame Size 
+Frame Hue 
+Frame Sat 
+Frame Light 
+Frame Reflect 
+Frame Grain 
+Border Size 
+Border Hue 
+Border Sat 
+Border Light 
+]]>
+          </StringValue>
+        </Constant>
+        <Constant Name="AuthorInfo" Type="2" StringValue="MaddestLabs"/>
+      </Children>
+    </Group>
+    <Group Comment="Unique Uniform Varible Inputs">
+      <Children>
+        <Variable Name="uViewport" Type="6"/>
+      </Children>
+    </Group>
+    <Group Comment="Materials and Textures">
+      <Children>
+        <Material Name="mCanvas" Shader="MainShader">
+          <Textures>
+            <MaterialTexture Name="FeedbackMaterialTexture" TexCoords="1"/>
+            <MaterialTexture Name="Source1" Texture="Bitmap1"/>
+          </Textures>
+        </Material>
+      </Children>
+    </Group>
+    <Bitmap Name="Bitmap1" Width="128" Height="128">
+      <Producers>
+        <BitmapCells CellStyle="5"/>
+      </Producers>
+    </Bitmap>
+  </Content>
+</ZApplication>
