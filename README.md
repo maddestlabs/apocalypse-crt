@@ -1,7 +1,7 @@
 # Apocalypse CRT
 Who knew classic CRT monitors would resurge as the prominent display for the apocalypse. This shader attempts to simulate those archaic but sturdy displays.
 
-Example of shader in Windows Terminal playing MLMatrix:
+Example of shader in Windows Terminal playing [MLMatrix](https://github.com/maddestlabs/mlmatrix):
 [![Apocalypse CRT in Windows Terminal](https://raw.githubusercontent.com/maddestlabs/apocalypse-crt/refs/heads/main/screenshots/apocalypse-crt-mlmatrix.jpg 'Apocalypse CRT')](https://youtu.be/ajy2HMS3IYE)
 
 ## What it is?
