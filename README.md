@@ -1,8 +1,8 @@
 # Apocalypse CRT
 Who knew classic CRT monitors would resurge as the prominent display for the apocalypse. This shader attempts to simulate those archaic but sturdy displays.
 
-Example of shader in use on FL Studio's ZGameEditor, during the apocalypse, of course:
-[![Apocalypse CRT](https://img.youtube.com/vi/eaLK1JijyYI/hqdefault.jpg 'Apocalypse CRT')](https://youtu.be/eaLK1JijyYI)
+Example of shader in Windows Terminal playing MLMatrix:
+[![Apocalypse CRT in Windows Terminal](https://img.youtube.com/vi/ajy2HMS3IYE/hqdefault.jpg 'Apocalypse CRT')](https://youtu.be/ajy2HMS3IYE)
 
 ## What it is?
 It's a CRT shader. There are a lot of CRT shaders. This one most accurately simulates CRT displays from the future. It's also available across a bunch of tools like [Windows Terminal](https://github.com/microsoft/terminal
