@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apocalypse CRT Shader Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .controls {
+            width: 350px;
+            background: #2a2a2a;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid #444;
+        }
+        
+        .preview {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #000;
+            position: relative;
+        }
+        
+        h1 {
+            color: #00ff41;
+            margin-bottom: 20px;
+            font-size: 18px;
+            text-align: center;
+            text-shadow: 0 0 10px #00ff41;
+        }
+        
+        .parameter-group {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #333;
+            border-radius: 8px;
+            border: 1px solid #555;
+        }
+        
+        .parameter-group h3 {
+            color: #ff6b35;
+            margin-bottom: 15px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .parameter {
+            margin-bottom: 12px;
+        }
+        
+        .parameter label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #ccc;
+        }
+        
+        .parameter-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .parameter input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: #555;
+            border-radius: 2px;
+            outline: none;
+            appearance: none;
+        }
+        
+        .parameter input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #00ff41;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 5px #00ff41;
+        }
+        
+        .parameter input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #00ff41;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 5px #00ff41;
+        }
+        
+        .parameter-value {
+            min-width: 50px;
+            text-align: right;
+            font-size: 11px;
+            color: #00ff41;
+            font-weight: bold;
+        }
+        
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        .export-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            border: 1px solid #555;
+        }
+        
+        .export-btn {
+            width: 100%;
+            padding: 12px;
+            background: #00ff41;
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .export-btn:hover {
+            background: #00cc33;
+            box-shadow: 0 0 15px #00ff41;
+        }
+        
+        .presets {
+            margin-bottom: 20px;
+        }
+        
+        .preset-btn {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 5px;
+            background: #444;
+            color: #fff;
+            border: 1px solid #666;
+            border-radius: 4px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .preset-btn:hover {
+            background: #555;
+            border-color: #777;
+        }
+        
+        .info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #666;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <h1>APOCALYPSE CRT</h1>
+            
+            <div class="presets">
+                <button class="preset-btn" onclick="loadPreset('default')">Default Settings</button>
+                <button class="preset-btn" onclick="loadPreset('retro')">Retro CRT</button>
+                <button class="preset-btn" onclick="loadPreset('modern')">Modern Display</button>
+                <button class="preset-btn" onclick="loadPreset('glitch')">Glitch Mode</button>
+            </div>
+            
+            <div class="parameter-group">
+                <h3>Visual Effects</h3>
+                <div class="parameter">
+                    <label>Grille Level</label>
+                    <div class="parameter-control">
+                        <input type="range" id="grilleLvl" min="0" max="3" step="0.1" value="0.95">
+                        <span class="parameter-value" id="grilleLvl-value">0.95</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Grille Density</label>
+                    <div class="parameter-control">
+                        <input type="range" id="grilleDensity" min="0" max="1000" step="10" value="800">
+                        <span class="parameter-value" id="grilleDensity-value">800</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Scanline Level</label>
+                    <div class="parameter-control">
+                        <input type="range" id="scanlineLvl" min="0.05" max="3" step="0.05" value="0.8">
+                        <span class="parameter-value" id="scanlineLvl-value">0.8</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Scanlines</label>
+                    <div class="parameter-control">
+                        <input type="range" id="scanlines" min="1" max="6" step="0.1" value="1">
+                        <span class="parameter-value" id="scanlines-value">1.0</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>RGB Offset</label>
+                    <div class="parameter-control">
+                        <input type="range" id="rgbOffset" min="0" max="0.01" step="0.0001" value="0.001">
+                        <span class="parameter-value" id="rgbOffset-value">0.001</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="parameter-group">
+                <h3>Distortion & Movement</h3>
+                <div class="parameter">
+                    <label>Noise Level</label>
+                    <div class="parameter-control">
+                        <input type="range" id="noiseLevel" min="0" max="1" step="0.05" value="0.1">
+                        <span class="parameter-value" id="noiseLevel-value">0.1</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Flicker</label>
+                    <div class="parameter-control">
+                        <input type="range" id="flicker" min="0" max="1" step="0.05" value="0.15">
+                        <span class="parameter-value" id="flicker-value">0.15</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>H-Sync</label>
+                    <div class="parameter-control">
+                        <input type="range" id="hSync" min="0" max="3" step="0.01" value="0.01">
+                        <span class="parameter-value" id="hSync-value">0.01</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Rumble Duration</label>
+                    <div class="parameter-control">
+                        <input type="range" id="rumbleDuration" min="0" max="3" step="0.1" value="1">
+                        <span class="parameter-value" id="rumbleDuration-value">1.0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="parameter-group">
+                <h3>Color & Tinting</h3>
+                <div class="parameter">
+                    <label>Glass Tint</label>
+                    <div class="parameter-control">
+                        <input type="range" id="glassTint" min="0" max="1" step="0.05" value="0.2">
+                        <span class="parameter-value" id="glassTint-value">0.2</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Glass Hue</label>
+                    <div class="parameter-control">
+                        <input type="range" id="glassHue" min="0" max="1" step="0.01" value="0">
+                        <span class="parameter-value" id="glassHue-value">0.0</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Glass Saturation</label>
+                    <div class="parameter-control">
+                        <input type="range" id="glassSat" min="0" max="1" step="0.05" value="0.3">
+                        <span class="parameter-value" id="glassSat-value">0.3</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Screen Tint</label>
+                    <div class="parameter-control">
+                        <input type="range" id="screenTint" min="0" max="1" step="0.05" value="0.2">
+                        <span class="parameter-value" id="screenTint-value">0.2</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Screen Hue</label>
+                    <div class="parameter-control">
+                        <input type="range" id="screenHue" min="0" max="1" step="0.01" value="0">
+                        <span class="parameter-value" id="screenHue-value">0.0</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Screen Saturation</label>
+                    <div class="parameter-control">
+                        <input type="range" id="screenSat" min="0" max="1" step="0.05" value="1">
+                        <span class="parameter-value" id="screenSat-value">1.0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="parameter-group">
+                <h3>Lighting & Effects</h3>
+                <div class="parameter">
+                    <label>Bloom Level</label>
+                    <div class="parameter-control">
+                        <input type="range" id="bloomLevel" min="0" max="2" step="0.1" value="0">
+                        <span class="parameter-value" id="bloomLevel-value">0.0</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Vignette Start</label>
+                    <div class="parameter-control">
+                        <input type="range" id="vignetteStart" min="0" max="2" step="0.05" value="0.25">
+                        <span class="parameter-value" id="vignetteStart-value">0.25</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Vignette Level</label>
+                    <div class="parameter-control">
+                        <input type="range" id="vignetteLvl" min="1" max="20" step="0.5" value="20">
+                        <span class="parameter-value" id="vignetteLvl-value">20.0</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Light Speed</label>
+                    <div class="parameter-control">
+                        <input type="range" id="lightSpeed" min="0" max="2" step="0.1" value="1">
+                        <span class="parameter-value" id="lightSpeed-value">1.0</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Overlay</label>
+                    <div class="parameter-control">
+                        <input type="range" id="overlay" min="0" max="2" step="0.1" value="1">
+                        <span class="parameter-value" id="overlay-value">1.0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="parameter-group">
+                <h3>Frame Settings</h3>
+                <div class="parameter">
+                    <label>Frame Size</label>
+                    <div class="parameter-control">
+                        <input type="range" id="frameSize" min="0" max="50" step="1" value="20">
+                        <span class="parameter-value" id="frameSize-value">20.0</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Frame Hue</label>
+                    <div class="parameter-control">
+                        <input type="range" id="frameHue" min="0" max="1" step="0.005" value="0.025">
+                        <span class="parameter-value" id="frameHue-value">0.025</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Frame Saturation</label>
+                    <div class="parameter-control">
+                        <input type="range" id="frameSat" min="0" max="1" step="0.05" value="0.1">
+                        <span class="parameter-value" id="frameSat-value">0.1</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Frame Light</label>
+                    <div class="parameter-control">
+                        <input type="range" id="frameLight" min="0" max="1" step="0.01" value="0.02">
+                        <span class="parameter-value" id="frameLight-value">0.02</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Frame Reflect</label>
+                    <div class="parameter-control">
+                        <input type="range" id="frameReflect" min="0" max="1" step="0.05" value="0.5">
+                        <span class="parameter-value" id="frameReflect-value">0.5</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Frame Grain</label>
+                    <div class="parameter-control">
+                        <input type="range" id="frameGrain" min="0" max="1" step="0.05" value="0.15">
+                        <span class="parameter-value" id="frameGrain-value">0.15</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Border Size</label>
+                    <div class="parameter-control">
+                        <input type="range" id="borderSize" min="0" max="50" step="1" value="20">
+                        <span class="parameter-value" id="borderSize-value">20.0</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Border Hue</label>
+                    <div class="parameter-control">
+                        <input type="range" id="borderHue" min="0" max="1" step="0.01" value="0">
+                        <span class="parameter-value" id="borderHue-value">0.0</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Border Saturation</label>
+                    <div class="parameter-control">
+                        <input type="range" id="borderSat" min="0" max="1" step="0.05" value="0">
+                        <span class="parameter-value" id="borderSat-value">0.0</span>
+                    </div>
+                </div>
+                <div class="parameter">
+                    <label>Border Light</label>
+                    <div class="parameter-control">
+                        <input type="range" id="borderLight" min="0" max="1" step="0.01" value="0">
+                        <span class="parameter-value" id="borderLight-value">0.0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="export-section">
+                <button class="export-btn" onclick="exportHLSL()">Export HLSL</button>
+            </div>
+        </div>
+        
+        <div class="preview">
+            <div class="info">Live Preview - WebGL</div>
+            <canvas id="glCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Parameter definitions with default values
+        const parameters = {
+            // Visual Effects
+            grilleLvl: 0.95,
+            grilleDensity: 800.0,
+            scanlineLvl: 0.8,
+            scanlines: 1.0,
+            rgbOffset: 0.001,
+            
+            // Distortion & Movement
+            noiseLevel: 0.1,
+            flicker: 0.15,
+            hSync: 0.01,
+            rumbleDuration: 1.0,
+            
+            // Color & Tinting
+            glassTint: 0.2,
+            glassHue: 0.0,
+            glassSat: 0.3,
+            screenTint: 0.2,
+            screenHue: 0.0,
+            screenSat: 1.0,
+            
+            // Lighting & Effects
+            bloomLevel: 0.0,
+            vignetteStart: 0.25,
+            vignetteLvl: 20.0,
+            lightSpeed: 1.0,
+            overlay: 1.0,
+            
+            // Frame Settings
+            frameSize: 20.0,
+            frameHue: 0.025,
+            frameSat: 0.1,
+            frameLight: 0.02,
+            frameReflect: 0.5,
+            frameGrain: 0.15,
+            borderSize: 20.0,
+            borderHue: 0.0,
+            borderSat: 0.0,
+            borderLight: 0.0
+        };
+
+        // Preset configurations
+        const presets = {
+            default: { ...parameters },
+            retro: {
+                ...parameters,
+                grilleLvl: 1.2,
+                scanlineLvl: 1.0,
+                rgbOffset: 0.003,
+                flicker: 0.3,
+                glassTint: 0.4,
+                glassHue: 0.15,
+                screenTint: 0.3,
+                frameLight: 0.05
+            },
+            modern: {
+                ...parameters,
+                grilleLvl: 0.3,
+                scanlineLvl: 0.2,
+                rgbOffset: 0.0005,
+                flicker: 0.05,
+                glassTint: 0.1,
+                screenTint: 0.1,
+                bloomLevel: 0.3
+            },
+            glitch: {
+                ...parameters,
+                hSync: 0.8,
+                rumbleDuration: 2.0,
+                rgbOffset: 0.008,
+                flicker: 0.6,
+                noiseLevel: 0.4,
+                scanlineLvl: 1.5
+            }
+        };
+
+        // WebGL setup
+        let gl, program, canvas;
+        let timeLocation, resolutionLocation;
+        let startTime = Date.now();
+
+        // Vertex shader
+        const vertexShaderSource = `
+            attribute vec4 a_position;
+            attribute vec2 a_texCoord;
+            varying vec2 v_texCoord;
+            
+            void main() {
+                gl_Position = a_position;
+                v_texCoord = a_texCoord;
+            }
+        `;
+
+        // Fragment shader (GLSL conversion of the HLSL)
+        const fragmentShaderSource = `
+            precision highp float;
+            
+            varying vec2 v_texCoord;
+            uniform float u_time;
+            uniform vec2 u_resolution;
+            
+            // ML Parameters (will be replaced with actual values)
+            uniform float u_grilleLvl;
+            uniform float u_grilleDensity;
+            uniform float u_scanlineLvl;
+            uniform float u_scanlines;
+            uniform float u_rgbOffset;
+            uniform float u_noiseLevel;
+            uniform float u_flicker;
+            uniform float u_glassTint;
+            uniform float u_glassHue;
+            uniform float u_glassSat;
+            uniform float u_screenTint;
+            uniform float u_screenHue;
+            uniform float u_screenSat;
+            uniform float u_bloomLevel;
+            uniform float u_vignetteStart;
+            uniform float u_vignetteLvl;
+            uniform float u_hSync;
+            uniform float u_lightSpeed;
+            uniform float u_overlay;
+            uniform float u_rumbleDuration;
+            uniform float u_frameSize;
+            uniform float u_frameHue;
+            uniform float u_frameSat;
+            uniform float u_frameLight;
+            uniform float u_frameReflect;
+            uniform float u_frameGrain;
+            uniform float u_borderSize;
+            uniform float u_borderHue;
+            uniform float u_borderSat;
+            uniform float u_borderLight;
+            
+            const float M_PI = 3.14159265;
+            
+            float rnd(vec2 c) {
+                return fract(sin(dot(c.xy, vec2(12.9898,78.233))) * 43758.5453);
+            }
+            
+            vec3 hsl2rgb(vec3 c) {
+                vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+                vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+                return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+            }
+            
+            vec3 rgbDistortion(vec2 uv, float offset) {
+                vec3 color;
+                // Simulate texture sampling with a test pattern
+                vec2 grid = floor(uv * 20.0);
+                float checker = mod(grid.x + grid.y, 2.0);
+                vec3 baseColor = mix(vec3(0.2, 0.8, 0.4), vec3(0.8, 0.2, 0.6), checker);
+                
+                // Add some dynamic content simulation
+                float wave1 = sin(uv.x * 50.0 + u_time) * 0.5 + 0.5;
+                float wave2 = cos(uv.y * 30.0 + u_time) * 0.5 + 0.5;
+                
+                color.r = mix(baseColor.r, baseColor.g, wave1);
+                color.g = baseColor.g;
+                color.b = mix(baseColor.b, baseColor.r, wave2);
+                return color;
+            }
+            
+            float calculateLightFactor(vec2 uv, float iTime) {
+                float intensity = 1.5;
+                float ambient_light = 0.25;
+                
+                float lightX = 0.5 + sin(iTime * 1.75) * 0.35;
+                vec2 lightPos = vec2(lightX, 0.2);
+                
+                vec2 lightVector = uv - lightPos;
+                float scaledDistance = length(lightVector);
+                
+                float lightFalloff = pow(clamp(1.0 - (scaledDistance / 1.5), 0.0, 1.0), 0.85);
+                
+                return mix(ambient_light, 1.0 + intensity, lightFalloff);
+            }
+            
+            vec3 tex(vec2 uv, float bSize, vec3 bColor, bool isFrame, float fSize) {
+                float iTime = u_time;
+                vec2 iResolution = u_resolution;
+                
+                // Configure parameters for horizontal sync wave
+                float time = iTime * 5.0;
+                float size = mix(0.0, u_hSync, 0.1);
+                
+                float cyclePeriod = 2.0;
+                float randomOffset = fract(sin(floor(iTime / cyclePeriod) * 12345.67) * 43758.5453);
+                float actualCyclePeriod = cyclePeriod + randomOffset;
+                float cyclePosition = fract(iTime / actualCyclePeriod);
+                
+                float waveDuration = 0.15;
+                float waveStrength = 0.0;
+                
+                if (cyclePosition < waveDuration) {
+                    float normalizedTime = cyclePosition / waveDuration;
+                    waveStrength = sin(normalizedTime * 3.14159) * size;
+                }
+                
+                float hWave = sin(uv.y * 10.0 + time) * waveStrength;
+                vec3 color;
+                
+                bool isBorder = 
+                    (uv.x < bSize || uv.x > 1.0 - bSize || 
+                     uv.y < bSize || uv.y > 1.0 - bSize);
+                
+                vec2 screenUV = (uv - vec2(bSize, bSize)) / (1.0 - 2.0 * bSize);
+                if (isBorder && bSize > 0.0) {
+                    if (screenUV.x < 0.0 || screenUV.x > 1.0 || screenUV.y < 0.0 || screenUV.y > 1.0) {
+                        color = bColor;
+                    } else {
+                        color = rgbDistortion(screenUV, u_rgbOffset);
+                    }
+                } else {
+                    screenUV.x += hWave;
+                    if (screenUV.x < 0.0 || screenUV.x > 1.0 || screenUV.y < 0.0 || screenUV.y > 1.0) {
+                        color = bColor;
+                    } else {
+                        color = rgbDistortion(screenUV, u_rgbOffset);
+                    }
+                }
+                
+                // FX Aperture Grille
+                if (u_grilleLvl > 0.0) {
+                    float grillePattern = sin(uv.x * u_grilleDensity * 3.14159);
+                    grillePattern = u_grilleLvl + (1.0 - u_grilleLvl) * grillePattern;
+                    color *= (0.5 + 0.5 * grillePattern);
+                }
+                
+                // FX Scanlines
+                if (u_scanlineLvl > 0.05) {
+                    float scanlinePattern = sin(uv.y * iResolution.y * 3.14159 / u_scanlines);
+                    color *= (u_scanlineLvl + (1.0 - u_scanlineLvl) * scanlinePattern);
+                }
+                
+                // FX Noise
+                if (u_noiseLevel > 0.0) {
+                    float timeFactor = iTime * 1.0;
+                    float noise = rnd(uv + timeFactor);
+                    color += noise * u_noiseLevel * 0.5;
+                }
+                
+                // FX Screen tint
+                if (u_screenTint > 0.0) {
+                    float l = dot(color, vec3(0.2126, 0.7152, 0.0722));
+                    vec3 screen = hsl2rgb(vec3(u_screenHue, u_screenSat, l));
+                    color = mix(color, screen, u_screenTint);
+                }
+                
+                // FX Glass tint
+                if (u_glassTint > 0.0) {
+                    float t = 0.5 + 0.5 * uv.y;
+                    vec3 tintColor = hsl2rgb(vec3(u_glassHue, u_glassSat, t));
+                    color += tintColor * u_glassTint;
+                }
+                
+                // FX Flicker
+                if (u_flicker > 0.0) {
+                    float f = 1.0 + 0.25 * sin(iTime * 60.0) * u_flicker;
+                    color *= f;
+                }
+                
+                return color;
+            }
+            
+            void main() {
+                float iTime = u_time;
+                vec2 iResolution = u_resolution;
+                
+                vec2 uv = gl_FragCoord.xy / iResolution.xy;
+                
+                // FX Rumble
+                float hash = fract(sin(floor(iTime / 7.0) * 43758.5453));
+                float interval = 7.0 + hash * 6.0;
+                float rumbleDim = 0.0;
+                if (u_rumbleDuration > 0.0) {
+                    float rumbleStrength = 0.0;
+                    
+                    float currentIntervalStart = floor(iTime / interval) * interval;
+                    float phase = iTime - currentIntervalStart;
+                    
+                    if (phase < u_rumbleDuration) {
+                        rumbleStrength = sin(phase * 3.14159 / u_rumbleDuration);
+                        rumbleDim = 0.05 * rumbleStrength;
+                    }
+                    
+                    float maxOffset = 3.0;
+                    vec2 rumbleOffset = vec2(
+                        sin(iTime * 20.0 + 0.3) * cos(iTime * 13.0),
+                        cos(iTime * 17.0 - 0.7) * sin(iTime * 11.0)
+                    ) * rumbleStrength * maxOffset / iResolution;
+                    uv += rumbleOffset;
+                }
+                
+                vec2 center = vec2(0.5, 0.5);
+                float alpha = 1.0;
+                float distanceFromCenter = length(uv - center);
+                vec2 pxSize = 1.0 / iResolution.xy;
+                
+                float curveStrength = 0.95;
+                float curveDistance = 5.0;
+                
+                uv += (uv - center) * pow(distanceFromCenter, curveDistance) * curveStrength;
+                
+                vec3 bColor = hsl2rgb(vec3(u_borderHue, u_borderSat, u_borderLight));
+                
+                float frame = u_frameSize * pxSize.x;
+                float border = u_borderSize * pxSize.x;
+                vec2 suv = (uv - vec2(frame, frame)) / (1.0 - 2.0 * frame);
+                
+                vec3 color;
+                
+                bool isFrame = (uv.x < frame || uv.x > (1.0 - frame) ||
+                                uv.y < frame || uv.y > (1.0 - frame));
+                
+                if (isFrame) {
+                    if (u_frameLight == 0.0) alpha = 0.0;
+                    
+                    float frameVal = 100.0;
+                    float nX = frameVal / iResolution.x;
+                    float nY = frameVal / iResolution.y;
+                    float intensity = 0.0;
+                    
+                    float distX = min(uv.x, 1.0-uv.x);
+                    float distY = min(uv.y, 1.0-uv.y);
+                    float minDist = min(distX, distY);
+                    
+                    intensity = mix(u_frameLight, 0.0, minDist / max(nX, nY) * 4.0);
+                    
+                    color = hsl2rgb(vec3(u_frameHue, u_frameSat, intensity));
+                    color *= 1.0 - u_frameGrain * rnd(suv);
+                    
+                    float lightFactor = calculateLightFactor(uv, iTime);
+                    vec3 lightColor = vec3(1.0, 0.98, 0.95);
+                    color *= lightColor * lightFactor;
+                } else {
+                    color = tex(suv, border, bColor, isFrame, u_frameSize);
+                }
+                
+                // FX Vignette
+                if (!isFrame) {
+                    uv *= (1.0 - uv.yx);
+                    color *= pow(uv.x * uv.y * u_vignetteLvl, u_vignetteStart);
+                }
+                
+                // FX Light Source
+                if (u_lightSpeed > 0.0 && !isFrame) {
+                    float lightFactor = calculateLightFactor(gl_FragCoord.xy / iResolution.xy, iTime * u_lightSpeed);
+                    vec3 lightColor = vec3(1.0, 0.98, 0.95);
+                    color *= lightColor * lightFactor;
+                }
+                
+                color -= rumbleDim;
+                
+                gl_FragColor = vec4(color, alpha);
+            }
+        `;
+
+        function initWebGL() {
+            canvas = document.getElementById('glCanvas');
+            gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            
+            if (!gl) {
+                alert('WebGL not supported');
+                return;
+            }
+            
+            // Create and compile shaders
+            const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+            if (!vertexShader) {
+                console.error('Failed to create vertex shader');
+                return;
+            }
+            
+            const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+            if (!fragmentShader) {
+                console.error('Failed to create fragment shader');
+                return;
+            }
+            
+            // Create program
+            program = createProgram(gl, vertexShader, fragmentShader);
+            if (!program) {
+                console.error('Failed to create shader program');
+                return;
+            }
+            
+            // Set up geometry
+            const positions = [
+                -1, -1,  0, 0,
+                 1, -1,  1, 0,
+                -1,  1,  0, 1,
+                -1,  1,  0, 1,
+                 1, -1,  1, 0,
+                 1,  1,  1, 1,
+            ];
+            
+            const positionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+            
+            const positionLocation = gl.getAttribLocation(program, 'a_position');
+            const texCoordLocation = gl.getAttribLocation(program, 'a_texCoord');
+            
+            gl.enableVertexAttribArray(positionLocation);
+            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 16, 0);
+            
+            gl.enableVertexAttribArray(texCoordLocation);
+            gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 16, 8);
+            
+            // Get uniform locations
+            timeLocation = gl.getUniformLocation(program, 'u_time');
+            resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
+            
+            // Start render loop
+            render();
+        }
+        
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('Shader compilation error:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            
+            return shader;
+        }
+        
+        function createProgram(gl, vertexShader, fragmentShader) {
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error('Program linking error:', gl.getProgramInfoLog(program));
+                gl.deleteProgram(program);
+                return null;
+            }
+            
+            return program;
+        }
+        
+        function render() {
+            if (!canvas || !gl) return;
+            
+            // Resize canvas to match display size
+            const displayWidth = canvas.clientWidth;
+            const displayHeight = canvas.clientHeight;
+            
+            if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+                canvas.width = displayWidth;
+                canvas.height = displayHeight;
+                gl.viewport(0, 0, displayWidth, displayHeight);
+            }
+            
+            gl.useProgram(program);
+            
+            // Update uniforms
+            const time = (Date.now() - startTime) / 1000;
+            gl.uniform1f(timeLocation, time);
+            gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+            
+            // Update parameter uniforms
+            Object.keys(parameters).forEach(param => {
+                const location = gl.getUniformLocation(program, `u_${param}`);
+                if (location !== null) {
+                    gl.uniform1f(location, parameters[param]);
+                }
+            });
+            
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+            requestAnimationFrame(render);
+        }
+        
+        function setupControls() {
+            Object.keys(parameters).forEach(param => {
+                const slider = document.getElementById(param);
+                const valueDisplay = document.getElementById(`${param}-value`);
+                
+                if (slider && valueDisplay) {
+                    slider.addEventListener('input', (e) => {
+                        const value = parseFloat(e.target.value);
+                        parameters[param] = value;
+                        valueDisplay.textContent = value.toFixed(3);
+                    });
+                }
+            });
+        }
+        
+        function loadPreset(presetName) {
+            const preset = presets[presetName];
+            if (!preset) return;
+            
+            Object.keys(preset).forEach(param => {
+                parameters[param] = preset[param];
+                
+                const slider = document.getElementById(param);
+                const valueDisplay = document.getElementById(`${param}-value`);
+                
+                if (slider) {
+                    slider.value = preset[param];
+                }
+                if (valueDisplay) {
+                    valueDisplay.textContent = preset[param].toFixed(3);
+                }
+            });
+        }
+        
+        function exportHLSL() {
+            const hlslTemplate = `// Title: Apocalypse CRT
+// Author: MaddestLabs
+// Generated by CRT Shader Editor
+
+SamplerState Sampler;
+Texture2D contentTexture : register(t0);
+Texture2D bgTexture : register(t1);  // Reflection/overlay texture
+
+cbuffer PixelShaderSettings
+{
+    float Time;
+    float Scale;
+    float2 Resolution;
+    float4 Background;
+};
+
+// Gaussian blur constants
+#define SCALED_GAUSSIAN_SIGMA (2.0 * Scale)
+static const float M_PI = 3.14159265;
+
+float rnd(float2 c) {
+    return frac(sin(dot(c.xy, float2(12.9898,78.233))) * 43758.5453);
+}
+
+float3 hsl2rgb(float3 c) {
+    float4 K = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    float3 p = abs(frac(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * lerp(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+// RGB shift
+float3 rgbDistortion(float2 uv, float offset) {
+    float3 color;
+    color.r = contentTexture.Sample(Sampler, uv + float2(offset, 0.0)).r;
+    color.g = contentTexture.Sample(Sampler, uv).g;
+    color.b = contentTexture.Sample(Sampler, uv - float2(offset, 0.0)).b;
+    return color;
+}
+
+// Gaussian 2D function for bloom effect
+float Gaussian2D(float x, float y, float sigma) {
+    return 1 / (sigma * sqrt(2 * M_PI)) * exp(-0.5 * (x * x + y * y) / sigma / sigma);
+}
+
+// Blur function for Bloom effect
+float3 Blur(float2 tex_coord, float sigma, float sampleCount, float borderSize, float hWave) {
+    float width, height;
+    float2 dimensions = Resolution;
+    width = dimensions.x;
+    height = dimensions.y;
+
+    float texelWidth = 1.0 / width;
+    float texelHeight = 1.0 / height;
+
+    float3 color = float3(0, 0, 0);
+    float totalWeight = 0.0;
+    
+    for (float x = 0; x < sampleCount; x++) {
+        float2 samplePos = float2(0, 0);
+        samplePos.x = tex_coord.x + (x - sampleCount / 2.0) * texelWidth;
+
+        for (float y = 0; y < sampleCount; y++) {
+            samplePos.y = tex_coord.y + (y - sampleCount / 2.0) * texelHeight;
+            
+            // Transform coordinates to account for border
+            float2 adjustedPos = (samplePos - float2(borderSize, borderSize)) / (1.0 - 2.0 * borderSize);
+            
+            // Apply horizontal sync distortion just like in the main rendering path
+            adjustedPos.x += hWave;
+            
+            // Check if the adjusted position is within the valid range
+            if (adjustedPos.x >= 0.0 && adjustedPos.x <= 1.0 && 
+                adjustedPos.y >= 0.0 && adjustedPos.y <= 1.0) {
+                
+                float weight = Gaussian2D(x - sampleCount / 2.0, y - sampleCount / 2.0, sigma);
+                totalWeight += weight;
+                
+                color += rgbDistortion(adjustedPos, 0.0005) * weight;
+            }
+        }
+    }
+    
+    // Prevent division by zero if all samples were outside the valid range
+    if (totalWeight > 0.0) {
+        return color / totalWeight;
+    } else {
+        return float3(0, 0, 0);
+    }
+}
+
+// Calculate light effect
+float calculateLightFactor(float2 uv, float iTime) {
+    // Light configuration
+    float intesnity = 1.5;      // Overall light intensity
+    float ambient_light = 0.25; // Minimum brightness in darker areas
+
+    // Calculate moving light position
+    float lightX = 0.5 + sin(iTime * 1.75) * 0.35;
+    float2 lightPos = float2(lightX, 0.2);
+    
+    // Calculate vector to light
+    float2 lightVector = uv - lightPos;
+    float2 scaledVector = float2(lightVector.x, lightVector.y);
+    float scaledDistance = length(scaledVector);
+    
+    // Apply smooth falloff
+    float lightFalloff = pow(saturate(1.0 - (scaledDistance / 1.5)), 0.85);
+    
+    // Create smooth transition from light to ambient
+    return lerp(ambient_light, 1.0 + intesnity, lightFalloff);
+}
+
+float3 tex(float2 uv, float bSize, float3 bColor, bool isFrame, float fSize) {
+    float iTime = Time;
+    float2 iResolution = Resolution;
+
+    // ML Parameters
+    float grilleLvl = ${parameters.grilleLvl}; // Range: 0.0, 3.0
+    float grilleDensity = ${parameters.grilleDensity}; // Range: 0.0, 1000.0
+    float scanlineLvl = ${parameters.scanlineLvl}; // Range: 0.05, 3.0
+    float scanlines = ${parameters.scanlines}; // Range:  1.0, 6.0
+    float rgbOffset = ${parameters.rgbOffset};
+    float noiseLevel = ${parameters.noiseLevel};
+    float flicker = ${parameters.flicker};
+    float glassTint = ${parameters.glassTint};
+    float glassHue = ${parameters.glassHue};
+    float glassSat = ${parameters.glassSat};
+    float screenTint = ${parameters.screenTint};
+    float screenHue = ${parameters.screenHue};
+    float screenSat = ${parameters.screenSat};
+    float bloomLevel = ${parameters.bloomLevel}; // Range: 0.0, 2.0
+    float vignetteStart = ${parameters.vignetteStart}; //Range: 0.0, 2.0
+    float vignetteLvl = ${parameters.vignetteLvl}; //Range: 1.0, 20.0
+    float hSync = ${parameters.hSync}; // Range: 0.0, 3.0
+    float lightSpeed = ${parameters.lightSpeed}; // Range: 0.0, 2.0
+    float overlay = ${parameters.overlay};
+    // ML Parameters
+    
+    // Configure parameters for horizontal sync wave
+    float time = iTime * 5.0;
+    float size = lerp(0.0, hSync, 0.1);
+
+    // Horizontal sync wave effect
+    float cyclePeriod = 2.0; // Base cycle of 2 seconds
+    float randomOffset = frac(sin(floor(iTime / cyclePeriod) * 12345.67) * 43758.5453); // Pseudo-random per cycle
+    float actualCyclePeriod = cyclePeriod + randomOffset; // Varies between 2-3 seconds
+    float cyclePosition = frac(iTime / actualCyclePeriod);
+
+    // Only show wave effect for the first 15% of each cycle
+    float waveDuration = 0.15;
+    float waveStrength = 0.0;
+
+    if (cyclePosition < waveDuration) {
+        float normalizedTime = cyclePosition / waveDuration;
+        waveStrength = sin(normalizedTime * 3.14159) * size;
+    }
+
+    // Apply wave effect only during the active period
+    float hWave = sin(uv.y * 10.0 + time) * waveStrength;
+
+    //float hWave = sin(uv.y * 10.0 + time) * size;
+    float3 color;
+
+    // Use borderColor if within border width
+    bool isBorder = 
+        (uv.x < bSize || uv.x > 1.0 - bSize || 
+         uv.y < bSize || uv.y > 1.0 - bSize);
+
+    // Calculate normalized coordinates within the screen area
+    float2 screenUV = (uv - float2(bSize, bSize)) / (1.0 - 2.0 * bSize);
+    if (isBorder && bSize > 0.0) {
+        // DISTORT - Horizontal Sync
+        if (screenUV.x < 0.0 || screenUV.x > 1.0 || screenUV.y < 0.0 || screenUV.y > 1.0) {
+            // If out of bounds, use border color
+            color = bColor;
+        } else {
+            // If in bounds but in border area, apply RGB shift to screen content
+            // for reflection effect
+            color = rgbDistortion(screenUV, rgbOffset);
+        }
+    } else {
+        // No border specified
+        screenUV.x += hWave;
+        if (screenUV.x < 0.0 || screenUV.x > 1.0 || screenUV.y < 0.0 || screenUV.y > 1.0) {
+            // If out of bounds after distortion, use border color
+            color = bColor;
+        } else {
+            // Use RGB shift with distortion
+            color = rgbDistortion(screenUV, rgbOffset);
+        }
+    }
+    
+    // FX Aperture Grille
+    if (grilleLvl > 0.0) {
+        float grillePattern = sin(uv.x * grilleDensity * 3.14159);
+        grillePattern = grilleLvl + (1.0 - grilleLvl) * grillePattern;
+        color *= (0.5 + 0.5 * grillePattern);
+    }
+    
+    // FX Scanlines
+    if (scanlineLvl > 0.05) {
+        float scanlinePattern = sin(uv.y * iResolution.y * 3.14159 / scanlines);
+        color *= (scanlineLvl + (1.0 - scanlineLvl) * scanlinePattern);
+    }
+    
+    // FX Noise
+    if (noiseLevel > 0.0) {
+        float timeFactor = iTime * 1.0;
+        float noise = rnd(uv + timeFactor);
+        color += noise * noiseLevel * 0.5;
+    }
+
+    // FX Screen tint
+    if (screenTint > 0.0) {
+        float l = dot(color, float3(0.2126, 0.7152, 0.0722));
+        float3 screen = hsl2rgb(float3(screenHue, screenSat, l));
+        color = float3(lerp(color, float3(screen), screenTint));
+    }
+    
+    // FX Glass tint
+    if (glassTint > 0.0) {
+        float t = 0.5 + 0.5 * uv.y;
+        float3 tintColor = hsl2rgb(float3(glassHue, glassSat, t));
+        color += tintColor * glassTint;
+    }
+
+    // FX Flicker
+    if (flicker > 0.0) {
+        float f = 1.0 + 0.25 * sin(iTime * 60.0) * flicker;
+        color *= f;
+    }
+
+    // FX Bloom
+    if (bloomLevel > 0.0) {
+        float sampleCount = 2;
+        float3 bloom = Blur(uv, SCALED_GAUSSIAN_SIGMA, sampleCount, bSize, hWave);
+        color += bloom * bloomLevel;
+    }
+
+    // FX background texture/overlay
+    if (overlay > 0.0) {
+        float4 bgTex = bgTexture.Sample(Sampler, uv);
+        // Mix based on opacity for PNG alpha levels
+        if (bgTex.a < 1.0 ) {
+            color = float3(lerp(color, bgTex, bgTex.a * overlay));
+        } else {
+            color = float3(lerp(color, bgTex, (0.5 * overlay)));
+            color += bgTex.rgb * 0.5;
+        }
+    }
+    
+    // FX Vignette
+    if (isFrame) uv = (uv - 0.5) * (1.0 / (1.0 - fSize)) + 0.5;
+    uv *= (1.0 - uv.yx);
+    color *= pow(uv.x * uv.y * vignetteLvl, vignetteStart);
+    
+    // FX Light Source
+    if (lightSpeed > 0.0) {
+        float lightFactor = calculateLightFactor(uv, iTime * lightSpeed);
+        float3 lightColor = float3(1.0, 0.98, 0.95); // Slightly warm light
+        color *= lightColor * lightFactor;
+    }
+
+    return color;
+}
+
+float4 main(float4 fragCoord : SV_POSITION, float2 hlsluv : TEXCOORD) : SV_TARGET
+{
+    float iTime = Time;
+    float2 iResolution = Resolution;
+    float4 fragColor;
+
+    float2 uv = fragCoord / iResolution.xy;
+
+    // FX Rumble
+    // Use a hash for random intervals
+    float hash = frac(sin(floor(iTime / 7.0) * 43758.5453));
+    float interval = 7.0 + hash * 6.0;
+    // ML Parameters
+    float rumbleDuration = ${parameters.rumbleDuration};
+    // ML Parameters
+    float rumbleDim = 0.0;
+    if (rumbleDuration > 0.0) {
+        float rumbleStrength = 0.0;
+        
+        // Calculate phase within current interval
+        float currentIntervalStart = floor(iTime / interval) * interval;
+        float phase = iTime - currentIntervalStart;
+        
+        if (phase < rumbleDuration) {
+            // Rumble strength peaks in middle and fades at start/end
+            rumbleStrength = sin(phase * 3.14159 / rumbleDuration);
+            rumbleDim = 0.05 * rumbleStrength;
+        }
+        
+        // Create random offset for rumble effect
+        float maxOffset = 3.0; // Maximum pixel offset
+        float2 rumbleOffset = float2(
+            sin(iTime * 20.0 + 0.3) * cos(iTime * 13.0),
+            cos(iTime * 17.0 - 0.7) * sin(iTime * 11.0)
+        ) * rumbleStrength * maxOffset / Resolution;
+        uv += rumbleOffset;
+    }
+
+    float2 center = float2(0.5, 0.5);
+    float alpha = 1.0;
+    float distanceFromCenter = length(uv - center);
+    // Calculate pixel size in UV coordinates
+    float2 pxSize = 1.0 / iResolution.xy;
+    
+    // Calculate curvature for main screen
+    float curveStrength = 0.95; // Range: 0.0, 5.0
+    float curveDistance = 5.0; // Range: 0.0, 5.0
+    
+    uv += (uv - center) * pow(distanceFromCenter, curveDistance) * curveStrength;
+    
+    // ML Parameters
+    float frameSize = ${parameters.frameSize};
+    float frameHue = ${parameters.frameHue};
+    float frameSat = ${parameters.frameSat};
+    float frameLight = ${parameters.frameLight};
+    float frameReflect = ${parameters.frameReflect};
+    float frameGrain = ${parameters.frameGrain};
+    float borderSize = ${parameters.borderSize};
+    float borderHue = ${parameters.borderHue};
+    float borderSat = ${parameters.borderSat};
+    float borderLight = ${parameters.borderLight};
+    // ML Parameters
+    
+    float3 bColor = hsl2rgb(float3(borderHue, borderSat, borderLight));
+    
+    float frame = frameSize * pxSize.x;
+    float border = borderSize * pxSize.x;
+    // Calculate scaled UV coordinates with offset
+    float2 suv = (uv - float2(frame, frame)) / (1.0 - 2.0 * (frame));
+
+    float3 color;
+
+    // Check if pixel is in frame region
+    bool isFrame = (uv.x < frame || uv.x > (1.0 - frame) ||
+                    uv.y < frame || uv.y > (1.0 - frame));
+   
+    // Determine color based on region
+    if (isFrame) {
+        if (frameLight == 0.0) alpha = 0.0;
+        // Calculate frame intensity based on distance to center
+        float frame = 100.0;
+        float nX = frame / iResolution.x;
+        float nY = frame / iResolution.y;
+        float intensity = 0.0;
+        // Calculate minimum distance to frame
+        float distX = min(uv.x, 1.0-uv.x);
+        float distY = min(uv.y, 1.0-uv.y);
+        float minDist = min(distX, distY);
+        // Scale intensity based on distance, closer to center gets darker
+        intensity = lerp(frameLight, 0.0, minDist / max(nX, nY) * 4.0);
+        
+        // Get base reflection coordinates
+        float2 f = border / iResolution.xy;
+        float2 reflectedUV = suv;
+        
+        // Apply standard mirror reflection
+        if (reflectedUV.x < f.x) {
+            reflectedUV.x = f.x - (reflectedUV.x - f.x);
+        } else if (reflectedUV.x > 1.0 - f.x) {
+            reflectedUV.x = 1.0 - f.x - (reflectedUV.x - (1.0 - f.x));
+        }
+        if (reflectedUV.y < f.y) {
+            reflectedUV.y = f.y - (reflectedUV.y - f.y);
+        } else if (reflectedUV.y > 1.0 - f.y) {
+            reflectedUV.y = 1.0 - f.y - (reflectedUV.y - (1.0 - f.y));
+        }
+        
+        // Apply controlled curvature to mirrored coordinates
+        float2 reflCenter = float2(0.5, 0.5);
+        float reflDistFromCenter = length(reflectedUV - reflCenter);
+
+        // Use curved coordinates for sampling texture
+        float3 blurred = float3(0.0, 0.0, 0.0);
+        float blur = 2.0 / iResolution.x;
+        float frameBlur = 1.0; // Range: 1.0, 6.0
+        int r = int(frameBlur);
+        for (int x = -r; x <= r; x++) {
+            for (int y = -r; y <= r; y++) {
+                float2 blurPos = reflectedUV + float2(float(x) * blur, float(y) * blur);
+                blurred += tex(blurPos, border, bColor, isFrame, frameSize);
+            }
+        }
+        blurred /= 32.0;
+        
+        color = hsl2rgb(float3(frameHue, frameSat, intensity));
+        color *= 1.0 - frameGrain * rnd(suv);
+        color += blurred * frameReflect * 0.5;
+        
+        // FX Light Source
+        float lightFactor = calculateLightFactor(uv, iTime);
+        float3 lightColor = float3(1.0, 0.98, 0.95); // Slightly warm light
+        color *= lightColor * lightFactor;
+    } else {
+        color = tex(suv, border, bColor, isFrame, frameSize);
+    }
+
+    // Dim lights during rumble
+    color -= rumbleDim;
+
+    fragColor = float4(color, alpha);
+    return fragColor;
+}`;
+
+            // Create download
+            const blob = new Blob([hlslTemplate], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'apocalypse_crt_modified.hlsl';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            // Also copy to clipboard
+            navigator.clipboard.writeText(hlslTemplate).then(() => {
+                alert('HLSL code exported to file and copied to clipboard!');
+            }).catch(() => {
+                alert('HLSL code exported to file!');
+            });
+        }
+        
+        // Initialize everything when page loads
+        window.addEventListener('load', () => {
+            setupControls();
+            initWebGL();
+        });
+    </script>
+</body>
+</html>
